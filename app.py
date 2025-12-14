@@ -6,36 +6,40 @@ app = Flask(__name__)
 @app.route('/transcript/<video_id>', methods=['GET'])
 def get_transcript(video_id):
     try:
-        # New API syntax for version 1.x
-        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['en', 'en-US', 'en-GB'])
+        # New API syntax for version 1.x - use list() and fetch()
+        ytt_api = YouTubeTranscriptApi()
+        transcript_list = ytt_api.list(video_id)
+        
+        # Try to find English transcript
+        transcript = None
+        for t in transcript_list:
+            if t.language_code.startswith('en'):
+                transcript = t
+                break
+        
+        # If no English, use first available
+        if not transcript:
+            for t in transcript_list:
+                transcript = t
+                break
+        
+        if not transcript:
+            return jsonify({'error': 'No transcript found', 'video_id': video_id}), 404
+        
+        # Fetch the transcript
+        fetched = ytt_api.fetch(transcript)
         
         # Combine all text
-        full_text = ' '.join([entry['text'] for entry in transcript])
+        full_text = ' '.join([entry.text for entry in fetched])
         
         return jsonify({
             'video_id': video_id,
             'text': full_text,
-            'language': 'en'
+            'language': transcript.language_code
         })
         
     except Exception as e:
-        error_message = str(e)
-        
-        # Try to get any available transcript
-        try:
-            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-            for transcript in transcript_list:
-                fetched = transcript.fetch()
-                full_text = ' '.join([entry['text'] for entry in fetched])
-                return jsonify({
-                    'video_id': video_id,
-                    'text': full_text,
-                    'language': transcript.language_code
-                })
-        except:
-            pass
-        
-        return jsonify({'error': error_message, 'video_id': video_id}), 404
+        return jsonify({'error': str(e), 'video_id': video_id}), 500
 
 @app.route('/health', methods=['GET'])
 def health():
