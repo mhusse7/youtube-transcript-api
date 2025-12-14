@@ -10,66 +10,52 @@ def get_transcript(video_id):
         ytt_api = YouTubeTranscriptApi()
         
         # Step 1: List transcripts
-        try:
-            transcript_list = ytt_api.list(video_id)
-        except Exception as e:
-            return jsonify({'error': f'List error: {str(e)}', 'video_id': video_id}), 500
+        transcript_list = ytt_api.list(video_id)
         
-        # Step 2: Find English transcript
-        selected_transcript = None
+        # Step 2: Find English transcript and fetch directly
+        fetched = None
         language = 'unknown'
         
-        try:
+        for t in transcript_list:
+            try:
+                lang_code = str(getattr(t, 'language_code', ''))
+            except:
+                lang_code = ''
+            
+            if lang_code.startswith('en'):
+                # Fetch using the transcript's own fetch method
+                fetched = t.fetch()
+                language = lang_code
+                break
+        
+        # If no English, use first available
+        if not fetched:
             for t in transcript_list:
                 try:
-                    lang_code = str(getattr(t, 'language_code', ''))
-                except:
-                    lang_code = ''
-                if lang_code.startswith('en'):
-                    selected_transcript = t
-                    language = lang_code
+                    fetched = t.fetch()
+                    language = str(getattr(t, 'language_code', 'unknown'))
                     break
-            
-            # If no English, use first available
-            if not selected_transcript:
-                for t in transcript_list:
-                    selected_transcript = t
-                    try:
-                        language = str(getattr(t, 'language_code', 'unknown'))
-                    except:
-                        language = 'unknown'
-                    break
-        except Exception as e:
-            return jsonify({'error': f'Select error: {str(e)}', 'video_id': video_id}), 500
-        
-        if not selected_transcript:
-            return jsonify({'error': 'No transcript found', 'video_id': video_id}), 404
-        
-        # Step 3: Fetch transcript
-        try:
-            fetched = ytt_api.fetch(selected_transcript)
-        except Exception as e:
-            return jsonify({'error': f'Fetch error: {str(e)}', 'video_id': video_id}), 500
-        
-        # Step 4: Convert to text
-        try:
-            text_parts = []
-            for entry in fetched:
-                try:
-                    if hasattr(entry, 'text'):
-                        text_parts.append(str(entry.text))
-                    elif isinstance(entry, dict) and 'text' in entry:
-                        text_parts.append(str(entry['text']))
-                    else:
-                        text_parts.append(str(entry))
                 except:
                     continue
-            
-            full_text = ' '.join(text_parts)
-        except Exception as e:
-            return jsonify({'error': f'Text error: {str(e)}', 'video_id': video_id}), 500
         
-        # Step 5: Return result
+        if not fetched:
+            return jsonify({'error': 'No transcript found', 'video_id': video_id}), 404
+        
+        # Step 3: Convert to text
+        text_parts = []
+        for entry in fetched:
+            try:
+                if hasattr(entry, 'text'):
+                    text_parts.append(str(entry.text))
+                elif isinstance(entry, dict) and 'text' in entry:
+                    text_parts.append(str(entry['text']))
+                else:
+                    text_parts.append(str(entry))
+            except:
+                continue
+        
+        full_text = ' '.join(text_parts)
+        
         return jsonify({
             'video_id': str(video_id),
             'text': str(full_text),
@@ -77,7 +63,7 @@ def get_transcript(video_id):
         })
         
     except Exception as e:
-        return jsonify({'error': f'General error: {str(e)}', 'video_id': str(video_id)}), 500
+        return jsonify({'error': str(e), 'video_id': str(video_id)}), 500
 
 @app.route('/health', methods=['GET'])
 def health():
