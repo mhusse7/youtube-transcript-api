@@ -1,18 +1,27 @@
 from flask import Flask, jsonify, request
 from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api.proxies import GenericProxyConfig
 
 app = Flask(__name__)
+
+# Your Webshare proxy
+PROXY_URL = "http://hscsyokm:jja4bsyfpkti@142.111.48.253:7030"
 
 @app.route('/transcript/<video_id>', methods=['GET'])
 def get_transcript(video_id):
     try:
-        # New API syntax for version 1.x
-        ytt_api = YouTubeTranscriptApi()
+        # Use proxy to avoid IP blocks
+        ytt_api = YouTubeTranscriptApi(
+            proxy_config=GenericProxyConfig(
+                http_url=PROXY_URL,
+                https_url=PROXY_URL
+            )
+        )
         
-        # Step 1: List transcripts
+        # List transcripts
         transcript_list = ytt_api.list(video_id)
         
-        # Step 2: Find English transcript and fetch directly
+        # Find English transcript
         fetched = None
         language = 'unknown'
         
@@ -23,7 +32,6 @@ def get_transcript(video_id):
                 lang_code = ''
             
             if lang_code.startswith('en'):
-                # Fetch using the transcript's own fetch method
                 fetched = t.fetch()
                 language = lang_code
                 break
@@ -41,7 +49,7 @@ def get_transcript(video_id):
         if not fetched:
             return jsonify({'error': 'No transcript found', 'video_id': video_id}), 404
         
-        # Step 3: Convert to text
+        # Convert to text
         text_parts = []
         for entry in fetched:
             try:
