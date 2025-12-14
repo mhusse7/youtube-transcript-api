@@ -11,32 +11,36 @@ def get_transcript(video_id):
         transcript_list = ytt_api.list(video_id)
         
         # Try to find English transcript
-        transcript = None
+        selected_transcript = None
+        language = 'unknown'
+        
         for t in transcript_list:
-            if t.language_code.startswith('en'):
-                transcript = t
+            lang_code = str(t.language_code) if hasattr(t, 'language_code') else ''
+            if lang_code.startswith('en'):
+                selected_transcript = t
+                language = lang_code
                 break
         
         # If no English, use first available
-        if not transcript:
+        if not selected_transcript:
             for t in transcript_list:
-                transcript = t
+                selected_transcript = t
+                language = str(t.language_code) if hasattr(t, 'language_code') else 'unknown'
                 break
         
-        if not transcript:
+        if not selected_transcript:
             return jsonify({'error': 'No transcript found', 'video_id': video_id}), 404
         
         # Fetch the transcript
-        fetched = ytt_api.fetch(transcript)
+        fetched = ytt_api.fetch(selected_transcript)
         
-        # Convert to plain text - handle the new object format
+        # Convert to plain text
         text_parts = []
         for entry in fetched:
-            # Try different ways to get text
             if hasattr(entry, 'text'):
                 text_parts.append(str(entry.text))
             elif isinstance(entry, dict) and 'text' in entry:
-                text_parts.append(entry['text'])
+                text_parts.append(str(entry['text']))
             else:
                 text_parts.append(str(entry))
         
@@ -45,7 +49,7 @@ def get_transcript(video_id):
         return jsonify({
             'video_id': video_id,
             'text': full_text,
-            'language': transcript.language_code
+            'language': language
         })
         
     except Exception as e:
