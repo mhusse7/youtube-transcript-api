@@ -63,20 +63,3 @@ def health():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
-```
-
-4. Scroll down to **"Commit changes"**
-5. Click **"Commit changes"** (green button)
-
----
-
-### **STEP 5: Create Second File (requirements.txt)**
-
-1. Go back to your repository main page (click the repo name at top)
-2. Click **"Add file"** → **"Create new file"**
-3. In the **"Name your file"** box, type: `requirements.txt`
-4. **Copy and paste this** into the editor:
-```
-flask==3.0.0
-youtube-transcript-api==0.6.2
-gunicorn==21.2.0
