@@ -6,7 +6,7 @@ app = Flask(__name__)
 @app.route('/transcript/<video_id>', methods=['GET'])
 def get_transcript(video_id):
     try:
-        # New API syntax for version 1.x - use list() and fetch()
+        # New API syntax for version 1.x
         ytt_api = YouTubeTranscriptApi()
         transcript_list = ytt_api.list(video_id)
         
@@ -29,8 +29,18 @@ def get_transcript(video_id):
         # Fetch the transcript
         fetched = ytt_api.fetch(transcript)
         
-        # Combine all text
-        full_text = ' '.join([entry.text for entry in fetched])
+        # Convert to plain text - handle the new object format
+        text_parts = []
+        for entry in fetched:
+            # Try different ways to get text
+            if hasattr(entry, 'text'):
+                text_parts.append(str(entry.text))
+            elif isinstance(entry, dict) and 'text' in entry:
+                text_parts.append(entry['text'])
+            else:
+                text_parts.append(str(entry))
+        
+        full_text = ' '.join(text_parts)
         
         return jsonify({
             'video_id': video_id,
